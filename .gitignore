@@ -44,8 +44,7 @@ Thumbs.db
 # Helm
 helm/**/*.tgz
 
-
-#custom 
+#custom
 README_GITHUB_SETUP.md
 SETUP.md
 docs/
@@ -57,3 +56,4 @@ docs/
 # Environment files
 .env
 *.env
+run.sh
