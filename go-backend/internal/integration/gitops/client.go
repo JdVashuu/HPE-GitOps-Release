@@ -68,9 +68,13 @@ func (g *gitOpsClient) GetRepoPath() string {
 }
 
 func (g *gitOpsClient) auth() transport.AuthMethod {
-	if g.username != "" || g.token != "" {
+	if g.token != "" {
+		username := g.username
+		if username == "" {
+			username = "git"
+		}
 		return &githttp.BasicAuth{
-			Username: g.username,
+			Username: username,
 			Password: g.token,
 		}
 	}
@@ -130,6 +134,12 @@ func (g *gitOpsClient) SyncToRemote(ctx context.Context) error {
 	remote, err := g.repo.Remote("origin")
 	if err != nil {
 		// If remote doesn't exist, skip remote sync (e.g. in offline unit tests)
+		return nil
+	}
+
+	if g.token == "" {
+		// Remote credentials not configured; skip remote fetch and use local repo state
+		g.markSynced()
 		return nil
 	}
 
@@ -215,6 +225,12 @@ func (g *gitOpsClient) Mutate(ctx context.Context, message string, mutator func(
 		}
 
 		// 5. Push to remote
+		if g.token == "" {
+			slog.Info("GIT_TOKEN not configured. Changes committed to local git repository; skipping remote push.", "message", message)
+			g.markSynced()
+			return nil
+		}
+
 		err = g.repo.PushContext(ctx, &git.PushOptions{
 			Auth: g.auth(),
 		})
