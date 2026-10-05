@@ -48,6 +48,7 @@ helm/**/*.tgz
 #custom 
 README_GITHUB_SETUP.md
 SETUP.md
+docs/
 
 # Local agent/tooling state
 .codex/

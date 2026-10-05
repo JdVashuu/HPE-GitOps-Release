@@ -14,7 +14,7 @@ management:
         include: health,info
 
 gitops:
-  repo-url: https://github.com/TasteTheThunder/hpe-recipe-final.git
+  repo-url: ${GITOPS_REPO_URL:https://github.com/JdVashuu/HPE-GitOps-Release.git}
   local-path: ${java.io.tmpdir}/hpe-recipe-gitops
   branch: main
   username: ${GIT_USERNAME:TasteTheThunder}
