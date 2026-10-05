@@ -50,6 +50,7 @@ type KubernetesConfig struct {
 
 // Load loads configuration from environment variables with sensible defaults matching application.yml.
 func Load() *Config {
+	loadDotEnv()
 	port := getEnvInt("SERVER_PORT", getEnvInt("PORT", 8081))
 	contextPath := getEnv("SERVER_CONTEXT_PATH", "/api")
 
@@ -138,4 +139,33 @@ func detectWorkspaceRoot() string {
 		}
 	}
 	return filepath.Join(os.TempDir(), "hpe-recipe-workspace")
+}
+
+func loadDotEnv() {
+	roots := []string{".env", "../.env"}
+	ws := detectWorkspaceRoot()
+	if ws != "" {
+		roots = append(roots, filepath.Join(ws, ".env"), filepath.Join(ws, "go-backend", ".env"))
+	}
+	for _, p := range roots {
+		data, err := os.ReadFile(p)
+		if err == nil {
+			for _, line := range strings.Split(string(data), "\n") {
+				line = strings.TrimSpace(line)
+				if line == "" || strings.HasPrefix(line, "#") {
+					continue
+				}
+				parts := strings.SplitN(line, "=", 2)
+				if len(parts) == 2 {
+					k := strings.TrimSpace(parts[0])
+					v := strings.TrimSpace(parts[1])
+					v = strings.Trim(v, `"'`)
+					if _, exists := os.LookupEnv(k); !exists {
+						_ = os.Setenv(k, v)
+					}
+				}
+			}
+			return
+		}
+	}
 }

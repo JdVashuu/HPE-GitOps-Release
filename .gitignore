@@ -53,3 +53,7 @@ docs/
 # Local agent/tooling state
 .codex/
 .agents/
+
+# Environment files
+.env
+*.env
