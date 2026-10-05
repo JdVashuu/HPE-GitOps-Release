@@ -14,15 +14,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          java-version: '17'
-          distribution: 'temurin'
+          go-version: '1.24'
 
-      - name: Build Backend
-        working-directory: backend
-        run: mvn clean package -DskipTests
+      - name: Build & Test Backend
+        working-directory: go-backend
+        run: |
+          go test -v ./...
+          go build -v ./cmd/recipe-api
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -38,8 +39,8 @@ jobs:
       - name: Build Docker Image
         run: docker build -t hpe-recipe-detection:${{ github.sha }} .
 
-      - name: Upload Backend Artifact
+      - name: Upload Backend Binary
         uses: actions/upload-artifact@v4
         with:
-          name: backend-jar
-          path: backend/target/recipe-detection-*.jar
+          name: recipe-api-binary
+          path: go-backend/recipe-api

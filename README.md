@@ -60,9 +60,9 @@ React UI
   |
   | HTTP /api and WebSocket /api/ws/releases
   v
-Spring Boot Backend
+Go Backend (recipe-api)
   |
-  | reads/writes catalog state with JGit
+  | reads/writes catalog state via go-git
   v
 GitHub Repository
   |
@@ -78,8 +78,7 @@ Kubernetes Clusters
 Main components:
 
 - Frontend: React 18, Vite, React Router, React Flow.
-- Backend: Spring Boot 3.2, Java 17, JGit, Fabric8 Kubernetes client,
-  WebSocket support.
+- Backend: Go 1.24+, net/http ServeMux, go-git/v5, Gorilla WebSocket.
 - Deployment: Helm chart in `helm/recipe-detection-chart`.
 - CI/CD: Jenkins pipeline defined in `Jenkinsfile`.
 - Git state: YAML files under `catalogs/recipe-detection`.
@@ -88,13 +87,15 @@ Main components:
 
 ```text
 .
-+-- backend/                         Spring Boot API
-|   +-- src/main/java/com/hpe/recipe
-|   |   +-- controller/              REST controllers
-|   |   +-- service/                 GitOps, platform, mapping, Jenkins logic
-|   |   +-- model/                   Catalog, release, recipe models
-|   |   +-- config/                  WebSocket, Kubernetes, promotion config
-|   +-- src/test/java/               Backend unit tests
++-- go-backend/                      Go net/http API service
+|   +-- cmd/recipe-api/              Service entrypoint (main.go)
+|   +-- internal/
+|       +-- controller/              REST controllers & WebSocket
+|       +-- service/                 GitOps, platform, release logic
+|       +-- model/                   Catalog, release, recipe models
+|       +-- config/                  Configuration loader
+|       +-- integration/             go-git, Jenkins, WebSocket hub
+|       +-- repository/              File YAML repository & cache
 +-- frontend/                        React + Vite UI
 |   +-- src/
 |       +-- App.jsx                  Visualizer page
@@ -203,13 +204,12 @@ If `2.2.0` is current, rollback targets `2.1.1`.
 
 For local development:
 
-- Java 17
-- Maven 3.9+
-- Node.js 18+
+- Go 1.24+
+- Node.js 18+ (optional, for React UI)
 - npm
 - Git
 
-For deployment workflows:
+For deployment workflows (optional):
 
 - Jenkins with access to this repository
 - Helm
@@ -220,12 +220,6 @@ For deployment workflows:
 - Jenkins API token for triggering builds
 
 ## Configuration
-
-Backend configuration lives in:
-
-```text
-backend/src/main/resources/application.yml
-```
 
 Default backend URL:
 
@@ -302,8 +296,8 @@ export JENKINS_TOKEN="<jenkins-token>"
 export JENKINS_URL="http://localhost:8080"
 export JENKINS_JOB="hpe-recipe-final"
 
-cd backend
-mvn spring-boot:run
+cd go-backend
+go run cmd/recipe-api/main.go
 ```
 
 Backend health check:
@@ -333,8 +327,9 @@ The Vite dev server proxies `/api` requests to `http://localhost:8081`.
 Backend:
 
 ```bash
-cd backend
-mvn clean install
+cd go-backend
+go test ./...
+go build ./cmd/recipe-api
 ```
 
 Frontend:
