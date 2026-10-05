@@ -85,7 +85,10 @@ func (g *gitOpsClient) auth() transport.AuthMethod {
 func (g *gitOpsClient) OpenOrClone(ctx context.Context) error {
 	g.lockManager.Lock()
 	defer g.lockManager.Unlock()
+	return g.openOrCloneUnlocked(ctx)
+}
 
+func (g *gitOpsClient) openOrCloneUnlocked(ctx context.Context) error {
 	gitDir := filepath.Join(g.localPath, ".git")
 	if _, err := os.Stat(gitDir); err == nil {
 		r, err := git.PlainOpen(g.localPath)
@@ -114,19 +117,26 @@ func (g *gitOpsClient) OpenOrClone(ctx context.Context) error {
 	return nil
 }
 
-// SyncIfStale checks cache TTL and pulls if elapsed.
+// SyncIfStale checks cache TTL and triggers an asynchronous refresh if elapsed.
 func (g *gitOpsClient) SyncIfStale(ctx context.Context) error {
 	now := time.Now().UnixMilli()
 	if now-g.lastSyncedAtMillis.Load() > g.cacheTTL.Milliseconds() {
-		return g.SyncToRemote(ctx)
+		g.lastSyncedAtMillis.Store(now)
+		if g.token != "" {
+			go func() {
+				bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				_ = g.SyncToRemote(bgCtx)
+			}()
+		}
 	}
 	return nil
 }
 
-// SyncToRemote executes fetch and hard reset against origin/<branch>.
+// SyncToRemote executes fetch against origin/<branch>.
 func (g *gitOpsClient) SyncToRemote(ctx context.Context) error {
 	if g.repo == nil {
-		if err := g.OpenOrClone(ctx); err != nil {
+		if err := g.openOrCloneUnlocked(ctx); err != nil {
 			return err
 		}
 	}
@@ -143,28 +153,14 @@ func (g *gitOpsClient) SyncToRemote(ctx context.Context) error {
 		return nil
 	}
 
-	err = remote.FetchContext(ctx, &git.FetchOptions{
+	fetchCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	err = remote.FetchContext(fetchCtx, &git.FetchOptions{
 		Auth: g.auth(),
 	})
 	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
-		slog.Warn("Git fetch warning", "err", err)
-	}
-
-	worktree, err := g.repo.Worktree()
-	if err != nil {
-		return fmt.Errorf("failed to get worktree: %w", err)
-	}
-
-	remoteBranchRef := plumbing.NewRemoteReferenceName("origin", g.branch)
-	ref, err := g.repo.Reference(remoteBranchRef, true)
-	if err == nil {
-		err = worktree.Reset(&git.ResetOptions{
-			Commit: ref.Hash(),
-			Mode:   git.HardReset,
-		})
-		if err != nil {
-			slog.Warn("Git hard reset warning", "err", err)
-		}
+		slog.Warn("Git fetch warning (continuing with local state)", "err", err)
 	}
 
 	g.remoteSyncCount.Add(1)
