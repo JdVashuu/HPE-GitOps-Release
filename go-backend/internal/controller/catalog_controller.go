@@ -201,3 +201,38 @@ func (c *CatalogController) EditDev(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusCreated, forked)
 }
+
+func (c *CatalogController) GetAllCatalogs(w http.ResponseWriter, r *http.Request) {
+	cluster := queryParam(r, "cluster", "dev")
+
+	envs, err := c.platform.GetEnvironments(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	version := envs[cluster]
+	if version == "" {
+		writeJSON(w, http.StatusOK, []interface{}{})
+		return
+	}
+
+	rel, err := c.platform.GetVersion(r.Context(), version)
+	if err != nil || rel == nil {
+		writeJSON(w, http.StatusOK, []interface{}{})
+		return
+	}
+
+	rel.Cluster = cluster
+	writeJSON(w, http.StatusOK, []*model.HelmRelease{rel})
+}
+
+func (c *CatalogController) GetCatalogRecipes(w http.ResponseWriter, r *http.Request) {
+	catalogVersion := pathParam(r, "catalogVersion")
+	rel, err := c.platform.GetVersion(r.Context(), catalogVersion)
+	if err != nil || rel == nil {
+		writeJSON(w, http.StatusOK, []interface{}{})
+		return
+	}
+	writeJSON(w, http.StatusOK, rel.Recipes)
+}

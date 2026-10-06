@@ -37,6 +37,8 @@ func NewRouter(params RouterParams) http.Handler {
 		mux.HandleFunc("POST "+p+"/catalog/edit", params.Catalog.EditDev)
 		mux.HandleFunc("GET "+p+"/history", params.Catalog.History)
 		mux.HandleFunc("DELETE "+p+"/history", params.Catalog.ClearHistory)
+		mux.HandleFunc("GET "+p+"/catalogs", params.Catalog.GetAllCatalogs)
+		mux.HandleFunc("GET "+p+"/catalogs/{catalogVersion}/recipes", params.Catalog.GetCatalogRecipes)
 
 		// Helm Releases
 		mux.HandleFunc("GET "+p+"/helm-releases", params.Release.GetAllHelmReleases)
